@@ -1,21 +1,20 @@
 package com.goticks
 
-import akka.actor.ActorRef
-import akka.actor.ActorSystem
+import akka.actor.typed.ActorRef
+import akka.actor.typed.Props
+import akka.actor.typed.scaladsl.ActorContext
+import akka.actor.typed.javadsl.AskPattern
 import akka.http.javadsl.marshallers.jackson.Jackson
-import akka.http.javadsl.model.StatusCode
 import akka.http.javadsl.model.StatusCodes
-import akka.http.javadsl.server.Route
 import akka.http.javadsl.server.Directives.*
 import akka.http.javadsl.server.PathMatchers.segment
-import akka.pattern.Patterns.ask
+import akka.http.javadsl.server.Route
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import java.time.Duration
-import kotlin.reflect.cast
 
-class RestApi(val system: ActorSystem, val objectMapper: ObjectMapper, override val timeout: Duration) : BoxOfficeApi {
-    override val boxOffice = system.actorOf(BoxOffice.props(timeout), BoxOffice.name)
+
+class RestApi(override val context: ActorContext<Void>, val objectMapper: ObjectMapper, override val timeout: Duration) : BoxOfficeApi {
+    override val boxOffice = context.spawn(BoxOffice.create(timeout), BoxOffice.name, Props.empty())
 
     fun createRoute(): Route {
         return concat(
@@ -61,26 +60,22 @@ class RestApi(val system: ActorSystem, val objectMapper: ObjectMapper, override 
 }
 
 interface BoxOfficeApi {
-    val boxOffice: ActorRef
+    val boxOffice: ActorRef<BoxOffice.Companion.Command>
     val timeout: Duration
+    val context: ActorContext<Void>
 
     fun createEvent(event: String, nrOrTickets: Int) =
-        ask(boxOffice, BoxOffice.Companion.CreateEvent(event, nrOrTickets), timeout)
-            .thenApply { BoxOffice.Companion.EventResponse::class.cast(it) }
+        AskPattern.ask(boxOffice, { replyTo: ActorRef<BoxOffice.Companion.EventResponse> -> BoxOffice.Companion.CreateEvent(event, nrOrTickets, replyTo)}, timeout, context.system().scheduler())
 
     fun getEvents() =
-        ask(boxOffice, BoxOffice.Companion.GetEvents, timeout)
-            .thenApply { BoxOffice.Companion.Events::class.cast(it) }
+        AskPattern.ask(boxOffice, { replyTo: ActorRef<BoxOffice.Companion.Events> -> BoxOffice.Companion.GetEvents(replyTo)}, timeout, context.system().scheduler())
 
     fun getEvent(event: String) =
-        ask(boxOffice, BoxOffice.Companion.GetEvent(event), timeout)
-            .thenApply { BoxOffice.Companion.GetEvent::class.cast(it) }
+        AskPattern.ask(boxOffice, { replyTo: ActorRef<BoxOffice.Companion.Event?> -> BoxOffice.Companion.GetEvent(event, replyTo)}, timeout,  context.system().scheduler())
 
     fun cancelEvent(event: String) =
-        ask(boxOffice, BoxOffice.Companion.CancelEvent(event), timeout)
-            .thenApply { BoxOffice.Companion.CancelEvent::class.cast(it) }
+        AskPattern.ask(boxOffice, { replyTo: ActorRef<BoxOffice.Companion.Event?> -> BoxOffice.Companion.CancelEvent(event, replyTo)}, timeout,  context.system().scheduler())
 
     fun requestTickets(event: String, tickets: Int) =
-        ask(boxOffice, BoxOffice.Companion.GetTickets(event, tickets), timeout)
-            .thenApply { BoxOffice.Companion.GetTickets::class.cast(it) }
+        AskPattern.ask(boxOffice, { replyTo: ActorRef<TicketSeller.Companion.Response> -> BoxOffice.Companion.GetTickets(event, tickets, replyTo)}, timeout,  context.system().scheduler())
 }

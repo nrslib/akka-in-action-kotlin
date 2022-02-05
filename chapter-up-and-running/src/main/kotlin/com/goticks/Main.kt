@@ -1,12 +1,14 @@
 package com.goticks
 
-import akka.actor.ActorSystem
+import akka.actor.typed.ActorSystem
+import akka.actor.typed.Behavior
+import akka.actor.typed.scaladsl.Behaviors
 import akka.http.javadsl.Http
-import akka.stream.Materializer
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.typesafe.config.ConfigFactory
 import java.time.Duration
+
 
 fun main(args: Array<String>) {
     // for kotlin jackson
@@ -16,11 +18,21 @@ fun main(args: Array<String>) {
     val host = config.getString("http.host") // Gets the host and a port from the configuration
     val port = config.getInt("http.port")
 
-    val system = ActorSystem.create()
-    // comment out; this code is for implicit parameter. you don't need.
-    // val ec = system.dispatcher // bindingFuture.map requires an implicit ExecutionContext
-    val api = RestApi(system, objectMapper, Duration.ofSeconds(5)).createRoute() // the RestApi provides a Route
+    val system = ActorSystem.create(create(objectMapper, host, port), "routes")
 
-    val materializer = Materializer.createMaterializer(system)
-    Http.get(system).newServerAt(host, port).bind(api) // Starts the HTTP server
+//    val api = RestApi(system.executionContext, system, objectMapper, Duration.ofSeconds(5)).createRoute() // the RestApi provides a Route
+//
+//    val materializer = Materializer.createMaterializer(system)
+//    Http.get(system).newServerAt(host, port).bind(api) // Starts the HTTP server
 }
+
+fun create(objectMapper: ObjectMapper, host: String, port: Int): Behavior<Void> {
+    return Behaviors.setup { context ->
+        val api = RestApi(context, objectMapper, Duration.ofSeconds(5))
+        val route = api.createRoute()
+        Http.get(context.system()).newServerAt(host, port).bind(route)
+
+        Behaviors.empty()
+    }
+}
+

@@ -16,7 +16,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
 
-    implementation("com.typesafe.akka:akka-actor_2.12:2.6.18")
+    implementation("com.typesafe.akka:akka-actor-typed_2.12:2.6.18")
     implementation("com.typesafe.akka:akka-testkit_2.12:2.6.18")
     implementation("com.typesafe.akka:akka-stream_2.12:2.6.18")
     implementation("com.typesafe.akka:akka-slf4j_2.12:2.6.18")

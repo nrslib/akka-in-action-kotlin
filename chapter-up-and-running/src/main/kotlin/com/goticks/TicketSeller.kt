@@ -1,58 +1,73 @@
 package com.goticks
 
-import akka.actor.AbstractActor
-import akka.actor.PoisonPill
-import akka.actor.Props
+import akka.actor.typed.ActorRef
+import akka.actor.typed.Behavior
+import akka.actor.typed.scaladsl.AbstractBehavior
+import akka.actor.typed.scaladsl.ActorContext
+import akka.actor.typed.scaladsl.Behaviors
 
-class TicketSeller(private val event: String) : AbstractActor() {
+class TicketSeller(context: ActorContext<Command>, private val event: String) : AbstractBehavior<TicketSeller.Companion.Command>(context) {
     private val tickets: MutableList<Ticket> = mutableListOf()
 
-    override fun createReceive(): Receive {
-        return receiveBuilder()
-            .match(Add::class.java, this::add)
-            .match(Buy::class.java, this::buy)
-            .match(GetEvent::class.java, this::getEvent)
-            .match(Cancel::class.java, this::cancel)
-            .build()
-    }
+    override fun onMessage(msg: Command?): Behavior<Command>        =
+        when(msg) {
+            is Add -> add(msg)
+            is Buy -> buy(msg)
+            is Cancel -> cancel(msg)
+            is GetEvent -> getEvent(msg)
+            null -> Behaviors.same()
+        }
 
-    private fun add(add: Add) {
+    private fun add(add: Add): Behavior<Command> {
         val newTickets = add.tickets
 
         tickets.addAll(newTickets)
+
+        return Behaviors.same()
     }
 
-    private fun buy(buy: Buy) {
+    private fun buy(buy: Buy): Behavior<Command> {
         val nrOfTickets = buy.tickets
+        val replyTo = buy.replyTo
 
         val entries = tickets.take(nrOfTickets)
         if (entries.size >= nrOfTickets) {
-            sender.tell(Tickets(event, entries), self)
+            replyTo.tell(Tickets(event, entries))
             tickets.drop(nrOfTickets)
         } else {
-            sender.tell(Tickets(event), self)
+            replyTo.tell(Tickets(event))
         }
+
+        return Behaviors.same()
     }
 
-    private fun getEvent(getEvent: GetEvent) {
-        sender.tell(BoxOffice.Companion.Event(event, tickets.size), self)
+    private fun getEvent(getEvent: GetEvent): Behavior<Command> {
+        val replyTo = getEvent.replyTo
+
+        replyTo.tell(BoxOffice.Companion.Event(event, tickets.size))
+
+        return Behaviors.same()
     }
 
-    private fun cancel(cancel: Cancel) {
-        sender.tell(BoxOffice.Companion.Event(event, tickets.size), self)
-        self.tell(PoisonPill.getInstance(), self)
+    private fun cancel(cancel: Cancel): Behavior<Command> {
+        val replyTo = cancel.replyTo
+
+        replyTo.tell(BoxOffice.Companion.Event(event, tickets.size))
+
+        return Behaviors.stopped() // poison pill
     }
 
     companion object {
-        fun props(event: String): Props {
-            return Props.create(TicketSeller::class.java) { TicketSeller(event) }
-        }
+        fun create(eventName: String): Behavior<Command> = Behaviors.setup { TicketSeller(it, eventName) }
 
-        data class Add(val tickets: List<Ticket>)
-        data class Buy(val tickets: Int)
+        sealed interface Command
+        data class Add(val tickets: List<Ticket>) : Command
+        data class Buy(val tickets: Int, val replyTo: ActorRef<Response>) : Command
+        data class GetEvent(val replyTo: ActorRef<BoxOffice.Companion.Event?>) : Command
+        data class Cancel(val replyTo: ActorRef<BoxOffice.Companion.Event?>) : Command
+
+        sealed interface Response
         data class Ticket(val id: Int)
-        data class Tickets(val event: String, val entries: List<Ticket> = listOf())
-        object GetEvent
-        object Cancel
+        data class Tickets(val event: String, val entries: List<Ticket> = listOf()) : Response
     }
 }
