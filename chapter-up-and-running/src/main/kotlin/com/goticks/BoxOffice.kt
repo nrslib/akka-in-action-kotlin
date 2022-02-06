@@ -8,14 +8,13 @@ import akka.actor.typed.scaladsl.*
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.CompletableFuture
-import kotlin.streams.toList
 
 class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) : AbstractBehavior<BoxOffice.Companion.Command>(context) {
-    val tsNameToTicketSeller = hashMapOf<String, ActorRef<TicketSeller.Companion.Command>>()
+    val eventNameToTicketSeller = hashMapOf<String, ActorRef<TicketSeller.Companion.Command>>()
 
     private fun createTicketSeller(name: String): ActorRef<TicketSeller.Companion.Command> {
         val ticketSeller = context().spawn(TicketSeller.create(name), name, Props.empty())
-        tsNameToTicketSeller[name] = ticketSeller
+        eventNameToTicketSeller[name] = ticketSeller
         return ticketSeller
     }
 
@@ -78,7 +77,7 @@ class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
     fun getEvents(getEvents: GetEvents): Behavior<Command>  {
         val replyTo = getEvents.replyTo
 
-        fun getEventFutures() = tsNameToTicketSeller.values
+        fun getEventFutures() = eventNameToTicketSeller.values
             .map {
                 AskPattern.ask(context().self(), {replyTo: ActorRef<Optional<Event>> -> GetEvent(it.path().name(), replyTo) }, timeout, context().system().scheduler())
                     .toCompletableFuture()
@@ -119,13 +118,13 @@ class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
     fun ticketSellerTerminated(msg: TicketSellerTerminated): Behavior<Command> {
         val name = msg.name
 
-        tsNameToTicketSeller.remove(name)
+        eventNameToTicketSeller.remove(name)
 
         return Behaviors.same()
     }
 
     private fun findTicketSellerThen(name: String,f: (ActorRef<TicketSeller.Companion.Command>) -> Unit, ifEmpty: () -> Unit) {
-        val ticketSeller = tsNameToTicketSeller[name]
+        val ticketSeller = eventNameToTicketSeller[name]
         if (ticketSeller != null) {
             f(ticketSeller)
         } else {
