@@ -11,19 +11,25 @@ import akka.http.javadsl.server.PathMatchers.segment
 import akka.http.javadsl.server.Route
 import com.fasterxml.jackson.databind.ObjectMapper
 import java.time.Duration
+import java.util.*
 
 
 class RestApi(override val context: ActorContext<Void>, val objectMapper: ObjectMapper, override val timeout: Duration) : BoxOfficeApi {
     override val boxOffice = context.spawn(BoxOffice.create(timeout), BoxOffice.name, Props.empty())
 
-    fun createRoute(): Route {
+    fun routes(): Route {
         return concat(
             pathPrefix("events") {
                 concat(
-                    getEventsRoute(),
-                    pathPrefix(segment()){name ->
+                    eventsGetRoute(),
+                    pathPrefix(segment().slash("tickets")) {
+                        postTicketRoute(it)
+                    },
+                    pathPrefix(segment()){
                         concat(
-                            postEventsRoute(name)
+                            eventPostRoute(it),
+                            eventGetRoute(it),
+                            eventDeleteRoute(it)
                         )
                     }
                 )
@@ -31,7 +37,7 @@ class RestApi(override val context: ActorContext<Void>, val objectMapper: Object
         )
     }
 
-    private fun getEventsRoute(): Route {
+    private fun eventsGetRoute(): Route {
         return get {
             pathEndOrSingleSlash {
                 onSuccess({ getEvents() }, {
@@ -41,7 +47,7 @@ class RestApi(override val context: ActorContext<Void>, val objectMapper: Object
         }
     }
 
-    private fun postEventsRoute(event: String): Route {
+    private fun eventPostRoute(event: String): Route {
         return post {
             entity(Jackson.unmarshaller(objectMapper, EventDescription::class.java)) { eventDescription ->
                 val ed = eventDescription!!
@@ -57,6 +63,47 @@ class RestApi(override val context: ActorContext<Void>, val objectMapper: Object
             }
         }
     }
+
+    private fun eventGetRoute(event: String): Route {
+        return get {
+            onSuccess({getEvent(event)}) {
+                if (it.isPresent) {
+                    completeOK(it.get(), Jackson.marshaller())
+                } else {
+                    complete(StatusCodes.NOT_FOUND)
+                }
+            }
+        }
+    }
+
+    private fun eventDeleteRoute(event: String): Route {
+        return delete {
+            onSuccess({cancelEvent(event)}) {
+                if (it.isPresent) {
+                    completeOK(it.get(), Jackson.marshaller())
+                } else {
+                    complete(StatusCodes.NOT_FOUND)
+                }
+            }
+        }
+    }
+
+    private fun postTicketRoute(event: String): Route {
+        return post {
+            pathEndOrSingleSlash {
+                entity(Jackson.unmarshaller(objectMapper, TicketRequest::class.java)) {
+                    onSuccess(requestTickets(event, it.tickets)) { tickets ->
+                        if (tickets.entries.isEmpty()) {
+                            complete(StatusCodes.NOT_FOUND)
+                        } else {
+                            complete(StatusCodes.CREATED, tickets, Jackson.marshaller())
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 }
 
 interface BoxOfficeApi {
@@ -71,11 +118,11 @@ interface BoxOfficeApi {
         AskPattern.ask(boxOffice, { replyTo: ActorRef<BoxOffice.Companion.Events> -> BoxOffice.Companion.GetEvents(replyTo)}, timeout, context.system().scheduler())
 
     fun getEvent(event: String) =
-        AskPattern.ask(boxOffice, { replyTo: ActorRef<BoxOffice.Companion.Event?> -> BoxOffice.Companion.GetEvent(event, replyTo)}, timeout,  context.system().scheduler())
+        AskPattern.ask(boxOffice, { replyTo: ActorRef<Optional<BoxOffice.Companion.Event>> -> BoxOffice.Companion.GetEvent(event, replyTo)}, timeout,  context.system().scheduler())
 
     fun cancelEvent(event: String) =
-        AskPattern.ask(boxOffice, { replyTo: ActorRef<BoxOffice.Companion.Event?> -> BoxOffice.Companion.CancelEvent(event, replyTo)}, timeout,  context.system().scheduler())
+        AskPattern.ask(boxOffice, { replyTo: ActorRef<Optional<BoxOffice.Companion.Event>> -> BoxOffice.Companion.CancelEvent(event, replyTo)}, timeout,  context.system().scheduler())
 
     fun requestTickets(event: String, tickets: Int) =
-        AskPattern.ask(boxOffice, { replyTo: ActorRef<TicketSeller.Companion.Response> -> BoxOffice.Companion.GetTickets(event, tickets, replyTo)}, timeout,  context.system().scheduler())
+        AskPattern.ask(boxOffice, { replyTo: ActorRef<TicketSeller.Companion.Tickets> -> BoxOffice.Companion.GetTickets(event, tickets, replyTo)}, timeout,  context.system().scheduler())
 }

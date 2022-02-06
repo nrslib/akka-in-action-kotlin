@@ -29,7 +29,7 @@ fun main(args: Array<String>) {
 fun create(objectMapper: ObjectMapper, host: String, port: Int): Behavior<Void> {
     return Behaviors.setup { context ->
         val api = RestApi(context, objectMapper, Duration.ofSeconds(5))
-        val route = api.createRoute()
+        val route = api.routes()
         Http.get(context.system()).newServerAt(host, port).bind(route)
 
         Behaviors.empty()
