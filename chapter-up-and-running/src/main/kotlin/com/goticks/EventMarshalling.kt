@@ -14,6 +14,4 @@ data class TicketRequest(val tickets: Int) {
 
 data class Error(val message: String)
 
-interface EventMarshalling {
-
-}
+interface EventMarshalling

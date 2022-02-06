@@ -4,12 +4,16 @@ import akka.actor.typed.ActorRef
 import akka.actor.typed.Behavior
 import akka.actor.typed.Props
 import akka.actor.typed.javadsl.AskPattern
-import akka.actor.typed.scaladsl.*
+import akka.actor.typed.scaladsl.AbstractBehavior
+import akka.actor.typed.scaladsl.ActorContext
+import akka.actor.typed.scaladsl.Behaviors
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.CompletableFuture
+import kotlin.streams.toList
 
-class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) : AbstractBehavior<BoxOffice.Companion.Command>(context) {
+class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
+    AbstractBehavior<BoxOffice.Companion.Command>(context) {
     val eventNameToTicketSeller = hashMapOf<String, ActorRef<TicketSeller.Companion.Command>>()
 
     private fun createTicketSeller(name: String): ActorRef<TicketSeller.Companion.Command> {
@@ -62,24 +66,30 @@ class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
         return Behaviors.same()
     }
 
-    fun getEvent(getEvent: GetEvent): Behavior<Command>  {
+    fun getEvent(getEvent: GetEvent): Behavior<Command> {
         val event = getEvent.name
         val replyTo = getEvent.replyTo
 
         fun notFound() = replyTo.tell(Optional.empty())
-        fun getEvent(child: ActorRef<TicketSeller.Companion.Command>) = child.tell(TicketSeller.Companion.GetEvent(replyTo))
+        fun getEvent(child: ActorRef<TicketSeller.Companion.Command>) =
+            child.tell(TicketSeller.Companion.GetEvent(replyTo))
 
         findTicketSellerThen(event, ::getEvent, ::notFound)
 
         return Behaviors.same()
     }
 
-    fun getEvents(getEvents: GetEvents): Behavior<Command>  {
+    fun getEvents(getEvents: GetEvents): Behavior<Command> {
         val replyTo = getEvents.replyTo
 
         fun getEventFutures() = eventNameToTicketSeller.values
             .map {
-                AskPattern.ask(context().self(), {replyTo: ActorRef<Optional<Event>> -> GetEvent(it.path().name(), replyTo) }, timeout, context().system().scheduler())
+                AskPattern.ask(
+                    context().self(),
+                    { replyTo: ActorRef<Optional<Event>> -> GetEvent(it.path().name(), replyTo) },
+                    timeout,
+                    context().system().scheduler()
+                )
                     .toCompletableFuture()
             }
 
@@ -94,13 +104,12 @@ class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
                 Events(events)
             }
 
-        futureEvents
-            .thenApply { replyTo.tell(it) }
+        futureEvents.thenApply { replyTo.tell(it) }
 
         return Behaviors.same()
     }
 
-    fun cancelEvent(cancelEvent: CancelEvent): Behavior<Command>  {
+    fun cancelEvent(cancelEvent: CancelEvent): Behavior<Command> {
         val event = cancelEvent.name
         val replyTo = cancelEvent.replyTo
 
@@ -123,7 +132,11 @@ class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
         return Behaviors.same()
     }
 
-    private fun findTicketSellerThen(name: String,f: (ActorRef<TicketSeller.Companion.Command>) -> Unit, ifEmpty: () -> Unit) {
+    private fun findTicketSellerThen(
+        name: String,
+        f: (ActorRef<TicketSeller.Companion.Command>) -> Unit,
+        ifEmpty: () -> Unit
+    ) {
         val ticketSeller = eventNameToTicketSeller[name]
         if (ticketSeller != null) {
             f(ticketSeller)
@@ -141,7 +154,12 @@ class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
         data class CreateEvent(val name: String, val tickets: Int, val replyTo: ActorRef<EventResponse>) : Command
         data class GetEvent(val name: String, val replyTo: ActorRef<Optional<Event>>) : Command
         data class GetEvents(val replyTo: ActorRef<Events>) : Command
-        data class GetTickets(val event: String, val tickets: Int, val replyTo: ActorRef<TicketSeller.Companion.Tickets>) : Command
+        data class GetTickets(
+            val event: String,
+            val tickets: Int,
+            val replyTo: ActorRef<TicketSeller.Companion.Tickets>
+        ) : Command
+
         data class CancelEvent(val name: String, val replyTo: ActorRef<Optional<Event>>) : Command
         data class TicketSellerTerminated(val name: String) : Command
 

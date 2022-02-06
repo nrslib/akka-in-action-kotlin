@@ -7,11 +7,12 @@ import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
 import java.util.*
 
-class TicketSeller(context: ActorContext<Command>, private val event: String) : AbstractBehavior<TicketSeller.Companion.Command>(context) {
+class TicketSeller(context: ActorContext<Command>, private val event: String) :
+    AbstractBehavior<TicketSeller.Companion.Command>(context) {
     private var tickets: List<Ticket> = listOf()
 
-    override fun onMessage(msg: Command?): Behavior<Command>        =
-        when(msg) {
+    override fun onMessage(msg: Command?): Behavior<Command> =
+        when (msg) {
             is Add -> add(msg)
             is Buy -> buy(msg)
             is Cancel -> cancel(msg)
