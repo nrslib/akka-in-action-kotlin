@@ -95,12 +95,8 @@ class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
                 Events(events)
             }
 
-        val scalaFuture = FutureConverters.toScala(futureEvents)
-        scalaFuture.onComplete ({
-            if(it.isSuccess) {
-                replyTo.tell(it.get())
-            }
-        }, context().executionContext())
+        futureEvents
+            .thenApply { replyTo.tell(it) }
 
         return Behaviors.same()
     }
