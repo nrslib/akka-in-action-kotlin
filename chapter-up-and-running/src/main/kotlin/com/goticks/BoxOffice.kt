@@ -10,7 +10,6 @@ import akka.actor.typed.scaladsl.Behaviors
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.CompletableFuture
-import kotlin.streams.toList
 
 class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
     AbstractBehavior<BoxOffice.Companion.Command>(context) {
@@ -90,17 +89,15 @@ class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
                     timeout,
                     context().system().scheduler()
                 )
-                    .toCompletableFuture()
             }
 
-        val futures = getEventFutures()
+        val futures = getEventFutures().map { it.toCompletableFuture() }
         val futureEvents = CompletableFuture.allOf(*futures.toTypedArray())
             .thenApply {
-                val events = futures.stream()
-                    .map { it.join() }
+                val events = futures
+                    .map { it.get() }
                     .filter { it.isPresent }
                     .map { it.get() }
-                    .toList()
                 Events(events)
             }
 
