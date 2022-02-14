@@ -21,7 +21,7 @@ class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
         return ticketSeller
     }
 
-    override fun onMessage(msg: Command?): Behavior<Command> =
+    override fun onMessage(msg: Command): Behavior<Command> =
         when (msg) {
             is CreateEvent -> createEvent(msg)
             is GetTickets -> getTickets(msg)
@@ -29,7 +29,6 @@ class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
             is GetEvents -> getEvents(msg)
             is CancelEvent -> cancelEvent(msg)
             is TicketSellerTerminated -> ticketSellerTerminated(msg)
-            else -> Behaviors.unhandled()
         }
 
     private fun createEvent(event: CreateEvent): Behavior<Command> {

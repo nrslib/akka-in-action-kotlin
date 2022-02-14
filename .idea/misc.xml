@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ExternalStorageConfigurationManager" enabled="true" />
   <component name="FrameworkDetectionExcludesConfiguration">
+    <file type="web" url="file://$PROJECT_DIR$/chapter-persistence" />
     <file type="web" url="file://$PROJECT_DIR$/chapter-up-and-running" />
   </component>
 </project>

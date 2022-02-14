@@ -11,13 +11,12 @@ class TicketSeller(context: ActorContext<Command>, private val event: String) :
     AbstractBehavior<TicketSeller.Companion.Command>(context) {
     private var tickets: List<Ticket> = listOf()
 
-    override fun onMessage(msg: Command?): Behavior<Command> =
+    override fun onMessage(msg: Command): Behavior<Command> =
         when (msg) {
             is Add -> add(msg)
             is Buy -> buy(msg)
             is Cancel -> cancel(msg)
             is GetEvent -> getEvent(msg)
-            else -> Behaviors.unhandled()
         }
 
     private fun add(add: Add): Behavior<Command> {
