@@ -17,7 +17,7 @@ class TicketSeller(context: ActorContext<Command>, private val event: String) :
             is Buy -> buy(msg)
             is Cancel -> cancel(msg)
             is GetEvent -> getEvent(msg)
-            null -> Behaviors.same()
+            else -> Behaviors.unhandled()
         }
 
     private fun add(add: Add): Behavior<Command> {
@@ -25,7 +25,7 @@ class TicketSeller(context: ActorContext<Command>, private val event: String) :
 
         tickets = tickets + newTickets
 
-        return Behaviors.same()
+        return this
     }
 
     private fun buy(buy: Buy): Behavior<Command> {
@@ -40,7 +40,7 @@ class TicketSeller(context: ActorContext<Command>, private val event: String) :
             replyTo.tell(Tickets(event))
         }
 
-        return Behaviors.same()
+        return this
     }
 
     private fun getEvent(getEvent: GetEvent): Behavior<Command> {
@@ -48,7 +48,7 @@ class TicketSeller(context: ActorContext<Command>, private val event: String) :
 
         replyTo.tell(Optional.of(BoxOffice.Companion.Event(event, tickets.size)))
 
-        return Behaviors.same()
+        return this
     }
 
     private fun cancel(cancel: Cancel): Behavior<Command> {
@@ -56,7 +56,7 @@ class TicketSeller(context: ActorContext<Command>, private val event: String) :
 
         replyTo.tell(Optional.of(BoxOffice.Companion.Event(event, tickets.size)))
 
-        return Behaviors.stopped() // poison pill
+        return Behaviors.stopped()
     }
 
     companion object {

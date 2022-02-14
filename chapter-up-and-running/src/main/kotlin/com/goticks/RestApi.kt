@@ -1,7 +1,6 @@
 package com.goticks
 
 import akka.actor.typed.ActorRef
-import akka.actor.typed.Props
 import akka.actor.typed.javadsl.AskPattern
 import akka.actor.typed.scaladsl.ActorContext
 import akka.http.javadsl.marshallers.jackson.Jackson
@@ -17,10 +16,9 @@ import java.util.*
 class RestApi(
     override val context: ActorContext<Void>,
     val objectMapper: ObjectMapper,
-    override val timeout: Duration
+    override val timeout: Duration,
+    override val boxOffice: ActorRef<BoxOffice.Companion.Command>
 ) : BoxOfficeApi {
-    override val boxOffice = context.spawn(BoxOffice.create(timeout), BoxOffice.name, Props.empty())
-
     fun routes(): Route {
         return concat(
             pathPrefix("events") {

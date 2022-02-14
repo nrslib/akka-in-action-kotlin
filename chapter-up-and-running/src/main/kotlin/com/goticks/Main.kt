@@ -2,6 +2,7 @@ package com.goticks
 
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.Behavior
+import akka.actor.typed.Props
 import akka.actor.typed.scaladsl.Behaviors
 import akka.http.javadsl.Http
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -28,7 +29,12 @@ fun main(args: Array<String>) {
 
 fun create(objectMapper: ObjectMapper, host: String, port: Int): Behavior<Void> {
     return Behaviors.setup { context ->
-        val api = RestApi(context, objectMapper, Duration.ofSeconds(5))
+        val timeout = Duration.ofSeconds(5)
+        val api = RestApi(context, objectMapper, timeout, context.spawn(
+            BoxOffice.create(timeout),
+            BoxOffice.name,
+            Props.empty()
+        ))
         val route = api.routes()
         Http.get(context.system()).newServerAt(host, port).bind(route)
 

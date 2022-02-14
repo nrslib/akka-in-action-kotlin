@@ -13,7 +13,7 @@ import java.util.concurrent.CompletableFuture
 
 class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
     AbstractBehavior<BoxOffice.Companion.Command>(context) {
-    val eventNameToTicketSeller = hashMapOf<String, ActorRef<TicketSeller.Companion.Command>>()
+    private val eventNameToTicketSeller = hashMapOf<String, ActorRef<TicketSeller.Companion.Command>>()
 
     private fun createTicketSeller(name: String): ActorRef<TicketSeller.Companion.Command> {
         val ticketSeller = context().spawn(TicketSeller.create(name), name, Props.empty())
@@ -29,11 +29,10 @@ class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
             is GetEvents -> getEvents(msg)
             is CancelEvent -> cancelEvent(msg)
             is TicketSellerTerminated -> ticketSellerTerminated(msg)
-            null -> Behaviors.same()
+            else -> Behaviors.unhandled()
         }
 
-
-    fun createEvent(event: CreateEvent): Behavior<Command> {
+    private fun createEvent(event: CreateEvent): Behavior<Command> {
         val name = event.name
         val tickets = event.tickets
         val replyTo = event.replyTo
@@ -48,10 +47,10 @@ class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
 
         findTicketSellerThen(name, { replyTo.tell(EventExists) }, ::create)
 
-        return Behaviors.same()
+        return this
     }
 
-    fun getTickets(getTickets: GetTickets): Behavior<Command> {
+    private fun getTickets(getTickets: GetTickets): Behavior<Command> {
         val event = getTickets.event
         val tickets = getTickets.tickets
         val replyTo = getTickets.replyTo
@@ -62,10 +61,10 @@ class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
 
         findTicketSellerThen(event, ::buy, ::notFound)
 
-        return Behaviors.same()
+        return this
     }
 
-    fun getEvent(getEvent: GetEvent): Behavior<Command> {
+    private fun getEvent(getEvent: GetEvent): Behavior<Command> {
         val event = getEvent.name
         val replyTo = getEvent.replyTo
 
@@ -75,10 +74,10 @@ class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
 
         findTicketSellerThen(event, ::getEvent, ::notFound)
 
-        return Behaviors.same()
+        return this
     }
 
-    fun getEvents(getEvents: GetEvents): Behavior<Command> {
+    private fun getEvents(getEvents: GetEvents): Behavior<Command> {
         val replyTo = getEvents.replyTo
 
         fun getEventFutures() = eventNameToTicketSeller.values
@@ -103,10 +102,10 @@ class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
 
         futureEvents.thenApply { replyTo.tell(it) }
 
-        return Behaviors.same()
+        return this
     }
 
-    fun cancelEvent(cancelEvent: CancelEvent): Behavior<Command> {
+    private fun cancelEvent(cancelEvent: CancelEvent): Behavior<Command> {
         val event = cancelEvent.name
         val replyTo = cancelEvent.replyTo
 
@@ -118,15 +117,15 @@ class BoxOffice(context: ActorContext<Command>, private val timeout: Duration) :
 
         findTicketSellerThen(event, ::cancelEvent, ::notFound)
 
-        return Behaviors.same()
+        return this
     }
 
-    fun ticketSellerTerminated(msg: TicketSellerTerminated): Behavior<Command> {
+    private fun ticketSellerTerminated(msg: TicketSellerTerminated): Behavior<Command> {
         val name = msg.name
 
         eventNameToTicketSeller.remove(name)
 
-        return Behaviors.same()
+        return this
     }
 
     private fun findTicketSellerThen(
