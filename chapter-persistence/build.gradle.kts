@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     kotlin("jvm") version "1.6.10"
 }
@@ -31,7 +33,9 @@ dependencies {
     implementation("com.typesafe.akka:akka-http_$scalaBinary:$akkaHttpVersion")
     implementation("com.typesafe.akka:akka-http-jackson_$scalaBinary:$akkaHttpVersion")
 
-    testImplementation("com.typesafe.akka:akka-testkit_$scalaBinary:$akkaVersion")
+//    testImplementation("com.typesafe.akka:akka-testkit_$scalaBinary:$akkaVersion") // change to typed
+    testImplementation("com.typesafe.akka:akka-actor-testkit-typed_$scalaBinary:$akkaVersion")
+    implementation("com.typesafe.akka:akka-persistence-testkit_$scalaBinary:$akkaVersion")
     testImplementation("com.typesafe.akka:akka-multi-node-testkit_$scalaBinary:$akkaVersion")
 
     implementation("com.typesafe.akka:akka-slf4j_$scalaBinary:$akkaVersion")
@@ -39,4 +43,12 @@ dependencies {
 
     implementation(platform("com.typesafe.akka:akka-bom_$scalaBinary:$akkaVersion"))
     implementation("com.typesafe.akka:akka-serialization-jackson_$scalaBinary:$akkaVersion")
+
+    // https://mvnrepository.com/artifact/com.fasterxml.jackson.module/jackson-module-kotlin
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.13.1")
+
+    // https://mvnrepository.com/artifact/org.jetbrains.kotlin/kotlin-test-junit
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:1.6.10")
+    // https://mvnrepository.com/artifact/commons-io/commons-io
+    testImplementation("commons-io:commons-io:2.11.0")
 }

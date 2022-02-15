@@ -2,6 +2,7 @@ package aia.persistence
 
 import java.math.BigDecimal
 import java.util.*
+import kotlin.math.min
 
 data class Items(val list: List<Item>) {
     companion object {
@@ -17,15 +18,17 @@ data class Items(val list: List<Item>) {
                         accItem.map { i -> item.aggregate(i) }
                             .orElse(Optional.of(item))
 
-                    aggregated to Math.min(accIx, ix)
+                    aggregated to min(accIx, ix)
                 }
 
                 item.get() to ix
             }.toMap()
-            fun sorted() = reduced()
-                .toList()
-                .sortedBy { (_, index) -> index }
-                .map { (item, _) -> item}
+
+            fun sorted(): List<Item> =
+                reduced()
+                    .toList()
+                    .sortedBy { (_, index) -> index }
+                    .map { (item, _) -> item }
 
             return sorted()
         }
@@ -34,13 +37,15 @@ data class Items(val list: List<Item>) {
     fun add(newItem: Item) = aggregate(list + newItem)
     fun add(items: Items) = aggregate(list + items.list)
 
-    fun containsProduct(productId: String) = list.any{it.productId == productId}
+    fun containsProduct(productId: String) = list.any { it.productId == productId }
 
     fun removeItem(productId: String) = aggregate(list.filterNot { it.productId == productId })
 
     fun updateItem(productId: String, number: Int): Items {
         val item = list.find { it.productId == productId }
-        val newList = if (item != null) { list.filterNot { it.productId == productId } + item.update(number) } else list
+        val newList = if (item != null) {
+            list.filterNot { it.productId == productId } + item.update(number)
+        } else list
         return Items.aggregate(newList)
     }
 

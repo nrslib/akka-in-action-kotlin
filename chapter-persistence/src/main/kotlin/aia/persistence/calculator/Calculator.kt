@@ -9,14 +9,17 @@ import akka.persistence.typed.javadsl.CommandHandler
 import akka.persistence.typed.javadsl.EventHandler
 import akka.persistence.typed.javadsl.EventSourcedBehavior
 
-class Calculator(persistentId: String)
-    : EventSourcedBehavior<Calculator.Command, Calculator.Event, Calculator.CalculationResult> (
-    PersistenceId.ofUniqueId(persistentId)) {
+class Calculator(persistentId: String) :
+    EventSourcedBehavior<Calculator.Command, Calculator.Event, Calculator.CalculationResult>(
+        PersistenceId.ofUniqueId(persistentId)
+    ) {
     companion object {
         val name = "my-calculator"
 
         fun create(persistentId: String): Behavior<Command> {
-            return Behaviors.setup { Calculator(persistentId) }
+            return Behaviors.setup {
+                Calculator(persistentId)
+            }
         }
     }
 
@@ -36,7 +39,7 @@ class Calculator(persistentId: String)
     data class Divided(val value: Double) : Event
     data class Multiplied(val value: Double) : Event
 
-    data class CalculationResult(val result: Double = 0.0) {
+    data class CalculationResult(val result: Double = 0.0) : JacksonSerializable {
         fun reset() = copy(result = 0.0)
         fun add(value: Double) = copy(result = this.result + value)
         fun subtract(value: Double) = copy(result = this.result - value)
@@ -48,20 +51,24 @@ class Calculator(persistentId: String)
         return CalculationResult(0.0)
     }
 
+    override fun shouldSnapshot(state: CalculationResult, event: Event, sequenceNr: Long): Boolean {
+        return event is Reset
+    }
+
     override fun commandHandler(): CommandHandler<Command, Event, CalculationResult> {
         return newCommandHandlerBuilder()
             .forAnyState()
-            .onCommand(Add::class.java) { _, command ->
-                Effect().persist(Added(command.value))
+            .onCommand(Add::class.java) { _, (value) ->
+                Effect().persist(Added(value))
             }
-            .onCommand(Subtract::class.java) { _, command ->
-                Effect().persist(Subtracted(command.value))
+            .onCommand(Subtract::class.java) { _, (value) ->
+                Effect().persist(Subtracted(value))
             }
-            .onCommand(Divide::class.java) { _, command ->
-                Effect().persist(Divided(command.value))
+            .onCommand(Divide::class.java) { _, (value) ->
+                Effect().persist(Divided(value))
             }
-            .onCommand(Multiply::class.java) { _, command ->
-                Effect().persist(Multiplied(command.value))
+            .onCommand(Multiply::class.java) { _, (value) ->
+                Effect().persist(Multiplied(value))
             }
             .onCommand(PrintResult::class.java) { state, _ ->
                 Effect().none().thenRun {
@@ -85,17 +92,17 @@ class Calculator(persistentId: String)
             .onEvent(Reset::class.java) { state, _ ->
                 state.reset()
             }
-            .onEvent(Added::class.java) { state, event ->
-                state.add(event.value)
+            .onEvent(Added::class.java) { state, (value) ->
+                state.add(value)
             }
-            .onEvent(Subtracted::class.java) { state, event ->
-                state.subtract(event.value)
+            .onEvent(Subtracted::class.java) { state, (value) ->
+                state.subtract(value)
             }
-            .onEvent(Divided::class.java) { state, event ->
-                state.divide(event.value)
+            .onEvent(Divided::class.java) { state, (value) ->
+                state.divide(value)
             }
-            .onEvent(Multiplied::class.java) { state, event ->
-                state.multiply(event.value)
+            .onEvent(Multiplied::class.java) { state, (value) ->
+                state.multiply(value)
             }
             .build()
     }

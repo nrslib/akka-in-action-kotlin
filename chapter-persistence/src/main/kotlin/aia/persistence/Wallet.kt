@@ -3,22 +3,32 @@ package aia.persistence
 import aia.persistence.serialization.JacksonSerializable
 import akka.actor.typed.ActorRef
 import akka.actor.typed.Behavior
+import akka.actor.typed.javadsl.ActorContext
 import akka.actor.typed.javadsl.Behaviors
 import akka.persistence.typed.PersistenceId
-import akka.persistence.typed.javadsl.*
+import akka.persistence.typed.javadsl.CommandHandler
+import akka.persistence.typed.javadsl.EventHandler
+import akka.persistence.typed.javadsl.EventSourcedBehavior
 import java.math.BigDecimal
 
-class Wallet(private val shopperId: Long, private val cash: BigDecimal)
-    : EventSourcedBehavior<Wallet.Command, Wallet.Event, Wallet.State>(PersistenceId.ofUniqueId(shopperId.toString())) {
-
+class Wallet(private val shopperId: Long, private val cash: BigDecimal, private val context: ActorContext<Command>) :
+    EventSourcedBehavior<Wallet.Command, Wallet.Event, Wallet.State>(
+        PersistenceId.ofUniqueId(
+            context.self.path().name()
+        )
+    ) {
     companion object {
         fun create(shopperId: Long, cash: BigDecimal): Behavior<Command> = Behaviors.setup {
-            Wallet(shopperId, cash)
+            Wallet(shopperId, cash, it)
         }
+
+        fun name(shopperId: Long) = "wallet_$shopperId"
     }
 
     sealed interface Command : Shopper.Command
-    data class Pay(val items: List<Item>, override val shopperId: Long, val replyTo: ActorRef<Paid>) : Command
+    data class Pay(val items: List<Item>, override val shopperId: Long, val replyTo: ActorRef<Shopper.Command>) :
+        Command
+
     data class Check(override val shopperId: Long, val replyTo: ActorRef<Cash>) : Command
     data class SpentHowMuch(override val shopperId: Long, val replyTo: ActorRef<AmountSpent>) : Command
 
@@ -28,10 +38,10 @@ class Wallet(private val shopperId: Long, private val cash: BigDecimal)
     sealed interface Event : JacksonSerializable
     data class Paid(val list: List<Item>, val shopperId: Long) : Event
 
-    data class State(val list: List<Item>, val amountSpent: BigDecimal)
+    data class State(val list: List<Item>, val amountSpent: BigDecimal) : JacksonSerializable
 
     override fun persistenceId(): PersistenceId {
-        return PersistenceId.ofUniqueId(shopperId.toString())
+        return PersistenceId.ofUniqueId(context.self.path().name())
     }
 
     override fun emptyState(): State {
@@ -46,7 +56,7 @@ class Wallet(private val shopperId: Long, private val cash: BigDecimal)
                 val totalSpent = addSpending(state, items)
                 if (cash - totalSpent > BigDecimal.ZERO) {
                     Effect().persist(Paid(items, shopperId))
-                        .thenReply(command.replyTo) {Paid(state.list, shopperId)}
+                        .thenReply(command.replyTo) { Shopper.WalletPayResponse(totalSpent, shopperId) }
                 } else {
                     // context.system.eventStream.publish(NotEnoughCash(cash - amountSpent))
                     Effect().none()
@@ -62,14 +72,13 @@ class Wallet(private val shopperId: Long, private val cash: BigDecimal)
 
     }
 
-    override fun eventHandler(): EventHandler<State, Event> {
-        return newEventHandlerBuilder()
+    override fun eventHandler(): EventHandler<State, Event> =
+        newEventHandlerBuilder()
             .forAnyState()
             .onEvent(Paid::class.java) { state, paid ->
                 state.copy(amountSpent = addSpending(state, paid.list))
             }
             .build()
-    }
 
     private fun addSpending(state: State, items: List<Item>): BigDecimal =
         state.amountSpent + items.fold(BigDecimal.ZERO) { total, item ->
