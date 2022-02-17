@@ -14,7 +14,7 @@ class Calculator(persistentId: String) :
         PersistenceId.ofUniqueId(persistentId)
     ) {
     companion object {
-        val name = "my-calculator"
+        val name = "calc"
 
         fun create(persistentId: String): Behavior<Command> {
             return Behaviors.setup {

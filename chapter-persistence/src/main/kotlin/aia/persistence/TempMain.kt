@@ -23,7 +23,7 @@ fun main(args: Array<String>) {
         val appleMouse = Item("Apple Mouse", 1, BigDecimal("99.99"))
         val appleKeyboard = Item("Apple Keyboard", 1, BigDecimal("79.99"))
 
-        val shoppers = it.spawn(LocalShoppers.create(), LocalShoppers.name, Props.empty())
+        val shoppers = it.spawn(LocalShoppers.create(), LocalShoppers.name(), Props.empty())
         val printer = it.spawn(Behaviors.setup<Shopper.Command> { Printer(it) }, "printer", Props.empty())
 
         val shopperId1 = 8L
@@ -32,7 +32,7 @@ fun main(args: Array<String>) {
         shoppers.tell(Basket.GetItems(shopperId1, printer))
 
         Behaviors.empty()
-    }, LocalShoppers.name, setup)
+    }, LocalShoppers.name(), setup)
 }
 
 class Printer(context: ActorContext<Shopper.Command>?) : AbstractBehavior<Shopper.Command>(context) {

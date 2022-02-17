@@ -11,7 +11,7 @@ import akka.persistence.typed.javadsl.EventHandler
 import akka.persistence.typed.javadsl.EventSourcedBehavior
 import java.util.*
 
-class Basket(private val context: ActorContext<Command>) :
+class Basket(context: ActorContext<Command>) :
     EventSourcedBehavior<Basket.Command, Basket.Event, Basket.State>(
         PersistenceId.ofUniqueId(
             context.self.path().name()
@@ -57,10 +57,6 @@ class Basket(private val context: ActorContext<Command>) :
         fun updateItem(id: String, number: Int): State = copy(items = items.updateItem(id, number))
         fun replace(newItems: Items): State = copy(items = newItems)
         fun clear() = copy(items = items.clear())
-    }
-
-    override fun persistenceId(): PersistenceId {
-        return PersistenceId.ofUniqueId(context.self.path().name())
     }
 
     override fun emptyState(): State {

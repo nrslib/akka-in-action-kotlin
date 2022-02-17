@@ -9,7 +9,8 @@ fun main(args: Array<String>) {
     val setup = ActorSystemSetup.empty().withSetup(
         JacksonObjectMapperProviderSetup(KotlinModuleJacksonObjectMapperFactory())
     )
-    val calculator = ActorSystem.create(Calculator.create(Calculator.name), Calculator.name, setup)
+    // Suppress warning: The name of the actor system is the value of application.conf (akka.cluster.seed-nodes).
+    val calculator = ActorSystem.create(Calculator.create(Calculator.name), "shoppers", setup)
 
     calculator.tell(Calculator.Add(1.0))
     calculator.tell(Calculator.Multiply(3.0))

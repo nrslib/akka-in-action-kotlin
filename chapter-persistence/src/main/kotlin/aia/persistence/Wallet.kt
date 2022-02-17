@@ -11,7 +11,7 @@ import akka.persistence.typed.javadsl.EventHandler
 import akka.persistence.typed.javadsl.EventSourcedBehavior
 import java.math.BigDecimal
 
-class Wallet(private val shopperId: Long, private val cash: BigDecimal, private val context: ActorContext<Command>) :
+class Wallet(private val shopperId: Long, private val cash: BigDecimal, context: ActorContext<Command>) :
     EventSourcedBehavior<Wallet.Command, Wallet.Event, Wallet.State>(
         PersistenceId.ofUniqueId(
             context.self.path().name()
@@ -39,10 +39,6 @@ class Wallet(private val shopperId: Long, private val cash: BigDecimal, private 
     data class Paid(val list: List<Item>, val shopperId: Long) : Event
 
     data class State(val list: List<Item>, val amountSpent: BigDecimal) : JacksonSerializable
-
-    override fun persistenceId(): PersistenceId {
-        return PersistenceId.ofUniqueId(context.self.path().name())
-    }
 
     override fun emptyState(): State {
         return State(listOf(), BigDecimal.ZERO)

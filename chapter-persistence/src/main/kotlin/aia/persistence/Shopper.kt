@@ -1,6 +1,5 @@
 package aia.persistence
 
-import akka.actor.typed.ActorRef
 import akka.actor.typed.Behavior
 import akka.actor.typed.Props
 import akka.actor.typed.scaladsl.AbstractBehavior
@@ -9,18 +8,18 @@ import akka.actor.typed.scaladsl.Behaviors
 import java.math.BigDecimal
 
 
-class Shopper(context: ActorContext<Command>) : AbstractBehavior<Shopper.Command>(context) {
+open class Shopper(context: ActorContext<Command>) : AbstractBehavior<Shopper.Command>(context) {
     companion object {
         fun create(): Behavior<Command> = Behaviors.setup { Shopper(it) }
         val cash: BigDecimal = BigDecimal(40000)
         fun name(shopperId: Long) = shopperId.toString()
     }
 
-    sealed interface Command {
+    interface Command {
         val shopperId: Long
     }
 
-    data class PayBasket(override val shopperId: Long, val replyTo: ActorRef<Command>) : Command
+    data class PayBasket(override val shopperId: Long) : Command
     data class BasketGetItemsResponse(val items: Items, override val shopperId: Long) : Command
     data class WalletPayResponse(val totalSpent: BigDecimal, override val shopperId: Long) : Command
 
@@ -51,5 +50,8 @@ class Shopper(context: ActorContext<Command>) : AbstractBehavior<Shopper.Command
                 basket.tell(Basket.Clear(msg.shopperId))
                 this
             }
+            else -> unhandled(msg)
         }
+
+    open fun unhandled(msg: Command): Behavior<Command> = this
 }
